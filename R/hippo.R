@@ -52,7 +52,7 @@ hippo_select_features = function(subdf,
                                  feature_method,
                                  z_threshold,
                                  deviance_threshold,
-                                 max_features=1000){
+                                 max_features){
 
   if (feature_method == "zero_inflation"){  
     idx <- sort(tail(sort(subdf$zvalue, index.return=TRUE)$ix, max_features))
@@ -252,7 +252,9 @@ hippo_one_level = function(subX,
                            km_nstart = 50,
                            km_iter.max = 50,
                            sc3_n_cores = 1){
+  message('\tpreprocessing...')
   subdf = preprocess_heterogeneous(subX)
+  message('\tselecting features...')
   features = hippo_select_features(subdf,
                                    feature_method,
                                    z_threshold,
@@ -268,6 +270,7 @@ hippo_one_level = function(subX,
   if (nrow(features) < 10) {
     return(null_result)
   }else {
+    message('\t clustering...')
     clustering_output = hippo_clustering(subX = subX,
                                          clustering_method = clustering_method,
                                          features = features,
