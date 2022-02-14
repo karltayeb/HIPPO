@@ -60,7 +60,7 @@ hippo_select_features = function(subdf,
     idx <- intersect(idx, idx2) 
     features = subdf[idx, ]
   }else if(feature_method=="deviance"){
-    idx <- sort(tail(sort(subdf$deviance=TRUE)$ix, max_features))
+    idx <- sort(tail(sort(subdf$deviance, index.return=TRUE)$ix, max_features))
     idx2 <- which(subdf$deviance > deviance_threshold)
     idx <- intersect(idx, idx2) 
     features = subdf[subdf$deviance > deviance_threshold, ]
