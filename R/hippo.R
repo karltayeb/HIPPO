@@ -96,11 +96,13 @@ clustering_kmeans = function(subX,
                              null_result,
                              sc3_n_cores){
   subX = subX[features$gene,]
+  message('\t\tunscaled PCA...')
   unscaledpc = suppressWarnings(irlba::prcomp_irlba(log(Matrix::t((subX)) + .1),
                                                     n = min(km_num_embeds - 1,
                                                             nrow(features) - 1,
                                                             ncol(subX) - 1),
                                                     scale. = FALSE, center = FALSE)$x)
+  message('\t\tscaled PCA')
   pcs = tryCatch(expr = {
     irlba::irlba(log(subX + 1),
                  min(km_num_embeds - 1,
