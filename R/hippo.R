@@ -51,10 +51,18 @@ compute_test_statistic = function(df) {
 hippo_select_features = function(subdf,
                                  feature_method,
                                  z_threshold,
-                                 deviance_threshold){
-  if (feature_method == "zero_inflation"){
-    features = subdf[subdf$zvalue > z_threshold, ]
+                                 deviance_threshold,
+                                 max_features=1000){
+
+  if (feature_method == "zero_inflation"){  
+    idx <- sort(tail(sort(subdf$zvalue, index.return=TRUE)$ix, max_features))
+    idx2 <- which(subdf$zvalue > z_threshold)
+    idx <- intersect(idx, idx2) 
+    features = subdf[idx, ]
   }else if(feature_method=="deviance"){
+    idx <- sort(tail(sort(subdf$deviance=TRUE)$ix, max_features))
+    idx2 <- which(subdf$deviance > deviance_threshold)
+    idx <- intersect(idx, idx2) 
     features = subdf[subdf$deviance > deviance_threshold, ]
   }else{
     stop("method should be either 'zero_inflation' or 'deviance'")
@@ -239,6 +247,7 @@ hippo_one_level = function(subX,
                                                  "SC3"),
                            z_threshold,
                            deviance_threshold,
+                           max_features=1000,
                            km_num_embeds = 10,
                            km_nstart = 50,
                            km_iter.max = 50,
@@ -247,7 +256,8 @@ hippo_one_level = function(subX,
   features = hippo_select_features(subdf,
                                    feature_method,
                                    z_threshold,
-                                   deviance_threshold)
+                                   deviance_threshold,
+                                   max_features)
   subX = subX[features$gene, ]
   nullfeatures = data.frame(matrix(ncol = 11, nrow = 0))
   colnames(nullfeatures) = c("gene", "gene_mean", "zero_proportion",
@@ -305,6 +315,7 @@ hippo = function(sce,
                  clustering_method = c("kmeans", "Seurat", "SC3"),
                  z_threshold = 2,
                  deviance_threshold = 50,
+                 max_features = 1000,
                  outlier_proportion = 0.001,
                  km_num_embeds = 10,
                  km_nstart = 10,
@@ -334,6 +345,7 @@ hippo = function(sce,
                             clustering_method = clustering_method,
                             z_threshold = z_threshold,
                             deviance_threshold = deviance_threshold,
+                            max_features = max_features,
                             km_num_embeds = km_num_embeds,
                             km_nstart = km_nstart,
                             km_iter.max = km_iter.max,
