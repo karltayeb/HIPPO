@@ -16,10 +16,23 @@ chunkRowMean <- function(x, chunk_size=10000){
   chunkRowSum(x, chunk_size)/dim(x)[2]
 }
 
-chunkRowVar <- function(x, chunk_size=100000){
+chunkRowVar <- function(x, chunk_size=10000){
   mu <- chunkRowMean(x, chunk_size)
   var <- chunkRowSum((x-mu^2)^2)/(ncol(x) - 1)
   return(var)
+}
+
+chunkRealize <- function(x, chunk_size=10000){
+  n_chunks = ceiling(dim(x)[2]/chunk_size)
+  u <- chunk(x, n_chunks)
+  v <- purrr::map(u, ~as(.x, 'dgCMatrix'))
+  return(Reduce(cbind, v))
+}
+
+log1p <- function(x){
+    log1px <- x
+    log1px@x <- log(log1px@x + 1)
+    return(log1px)
 }
 
 pois_deviance = function(x){
@@ -41,6 +54,7 @@ nb_prob_zero = function(lambda, theta) {
 
 zinb_prob_zero = function(lambda, theta, pi) {
   return(pi + (1-pi) * nb_prob_zero(lambda, theta))
+
 }
 
 compute_test_statistic = function(df) {
@@ -121,16 +135,18 @@ clustering_kmeans = function(subX,
                              km_iter.max,
                              null_result,
                              sc3_n_cores){
-  subX = subX[features$gene,]
+
+  message('load selected features...')
+  subX = chunkRealize(subX[features$gene,])
   message('\t\tunscaled PCA...')
-  unscaledpc = suppressWarnings(irlba::prcomp_irlba(log(Matrix::t((subX)) + .1),
+  unscaledpc = suppressWarnings(irlba::prcomp_irlba(t(log1p(subX)),
                                                     n = min(km_num_embeds - 1,
                                                             nrow(features) - 1,
                                                             ncol(subX) - 1),
                                                     scale. = FALSE, center = FALSE)$x)
   message('\t\tscaled PCA')
   pcs = tryCatch(expr = {
-    irlba::irlba(log(subX + 1),
+    irlba::irlba(log1p(subX),
                  min(km_num_embeds - 1,
                      nrow(features) -1,
                      ncol(subX) - 1))$v
