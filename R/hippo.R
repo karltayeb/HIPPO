@@ -1,5 +1,5 @@
 RowVar <- function(x) {
-  Matrix::rowSums((x - Matrix::rowMeans(x))^2)/(ncol(x) - 1)
+  DelayedMatrixStats::rowSums2((x - DelayedMatrixStats::rowMeans2(x))^2)/(ncol(x) - 1)
 }
 
 pois_deviance = function(x){
@@ -57,11 +57,17 @@ hippo_select_features = function(subdf,
   if (feature_method == "zero_inflation"){  
     idx <- sort(tail(sort(subdf$zvalue, index.return=TRUE)$ix, max_features))
     idx2 <- which(subdf$zvalue > z_threshold)
+    message(paste0(
+        '\t', length(idx2), ' features with threshold > ', z_threshold,
+        '... selecting top ', max_features)) 
     idx <- intersect(idx, idx2) 
     features = subdf[idx, ]
   }else if(feature_method=="deviance"){
     idx <- sort(tail(sort(subdf$deviance, index.return=TRUE)$ix, max_features))
     idx2 <- which(subdf$deviance > deviance_threshold)
+    message(paste0(
+        '\t', length(idx2), ' features with threshold > ', z_threshold,
+        '... selecting top ', max_features)) 
     idx <- intersect(idx, idx2) 
     features = subdf[subdf$deviance > deviance_threshold, ]
   }else{
@@ -414,17 +420,22 @@ hippo = function(sce,
 }
 
 
-preprocess_heterogeneous = function(X) {
+preprocess_heterogeneous = function(X, compute_deviance=FALSE) {
+  message('\t\tcomputing gene level statistics')
   df = data.frame(gene = rownames(X),
-                  gene_mean = Matrix::rowMeans(X),
-                  zero_proportion = 1-Matrix::rowSums(X > 0)/ncol(X))
-  where = which(df$gene_mean > 0)
-  gene_var = rep(NA, nrow(X))
-  gene_var[where] = RowVar(X[where, ])
+                  gene_mean = DelayedMatrixStats::rowMeans2(X),
+                  zero_proportion = 1-DelayedMatrixStats::rowSums2(X > 0)/ncol(X),
+                  gene_var = RowVar(X))
+  where = which(df$gene_mean == 0)
+  df$gene_var[where] = NA
+  if (compute_deviance){
+  message('\t\tcomputing deviance')
   df = df %>% dplyr::mutate(gene_var = gene_var) %>%
     dplyr::mutate(samplesize = ncol(X)) %>%
     dplyr::mutate(deviance = apply(X, 1, pois_deviance))
+  }
   df$samplesize = ncol(X)
+  message('\t\tcomputing test statistics')
   df = compute_test_statistic(df)
   return(df)
 }
@@ -458,8 +469,8 @@ preprocess_homogeneous = function(sce, label) {
   for (i in seq(length(labelnames))) {
     ind = which(label == labelnames[i])
     if(length(ind) >= 2){
-      zero_proportion[, i] = Matrix::rowMeans(X[, ind] == 0)
-      gene_mean[, i] = Matrix::rowMeans(X[, ind])
+      zero_proportion[, i] = DelayedMatrixStats::rowMeans2(X[, ind] == 0)
+      gene_mean[, i] = DelayedMatrixStats::rowMeans2(X[, ind])
       where = gene_mean[, i] != 0
       gene_var[where, i] = RowVar(X[where, ind])
       deviance[where,i] = apply(X[where,], 1, pois_deviance)
@@ -1006,12 +1017,12 @@ diffexp_subfunction_gaus = function(count, features, group1, group2){
   if(length(group1) == 1){
     mean1 = mean(count1)
   }else{
-    mean1 = Matrix::rowMeans(count1)
+    mean1 = DelayedMatrixStats::rowMeans2(count1)
   }
   if(length(group2) == 1){
     mean2 = mean(count2)
   }else{
-    mean2 = Matrix::rowMeans(count2)
+    mean2 = DelayedMatrixStats::rowMeans2(count2)
   }
   rowdata = rowdata %>% dplyr::mutate(meandiff = mean1-mean2) %>%
     dplyr::mutate(sd = sqrt(mean1/length(group1)+
