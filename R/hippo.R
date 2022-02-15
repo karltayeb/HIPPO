@@ -1,5 +1,25 @@
 RowVar <- function(x) {
-  DelayedMatrixStats::rowSums2((x - DelayedMatrixStats::rowMeans2(x))^2)/(ncol(x) - 1)
+  Matrix::rowSums((x - Matrix::rowMeans(x))^2)/(ncol(x) - 1)
+}
+
+chunk <- function(x, number_of_chunks) {
+  idx <- seq_len(dim(x)[2])    
+  lapply(split(idx, cut(idx, pretty(idx, number_of_chunks))), function(i) x[,i])
+}
+
+chunkRowSum <- function(x, chunk_size=10000){
+  n_chunks = ceiling(dim(x)[2]/chunk_size)
+  Reduce('+', lapply(chunk(x, n_chunks), Matrix::rowSums))
+}
+
+chunkRowMean <- function(x, chunk_size=10000){
+  chunkRowSum(x, chunk_size)/dim(x)[2]
+}
+
+chunkRowVar <- function(x, chunk_size=100000){
+  mu <- chunkRowMean(x, chunk_size)
+  var <- chunkRowSum((x-mu^2)^2)/(ncol(x) - 1)
+  return(var)
 }
 
 pois_deviance = function(x){
@@ -278,7 +298,7 @@ hippo_one_level = function(subX,
   if (nrow(features) < 10) {
     return(null_result)
   }else {
-    message('\t clustering...')
+    message('\tclustering...')
     clustering_output = hippo_clustering(subX = subX,
                                          clustering_method = clustering_method,
                                          features = features,
@@ -423,9 +443,9 @@ hippo = function(sce,
 preprocess_heterogeneous = function(X, compute_deviance=FALSE) {
   message('\t\tcomputing gene level statistics')
   df = data.frame(gene = rownames(X),
-                  gene_mean = DelayedMatrixStats::rowMeans2(X),
-                  zero_proportion = 1-DelayedMatrixStats::rowSums2(X > 0)/ncol(X),
-                  gene_var = RowVar(X))
+                  gene_mean = chunkRowMean(X),
+                  zero_proportion = 1-chunkRowSum(X > 0)/ncol(X),
+                  gene_var = chunkRowVar(X))
   where = which(df$gene_mean == 0)
   df$gene_var[where] = NA
   if (compute_deviance){
@@ -469,10 +489,10 @@ preprocess_homogeneous = function(sce, label) {
   for (i in seq(length(labelnames))) {
     ind = which(label == labelnames[i])
     if(length(ind) >= 2){
-      zero_proportion[, i] = DelayedMatrixStats::rowMeans2(X[, ind] == 0)
-      gene_mean[, i] = DelayedMatrixStats::rowMeans2(X[, ind])
+      zero_proportion[, i] = chunkRowMean(X[, ind] == 0)
+      gene_mean[, i] = chunkRowMean(X[, ind])
       where = gene_mean[, i] != 0
-      gene_var[where, i] = RowVar(X[where, ind])
+      gene_var[where, i] = chunkRowVar(X[where, ind])
       deviance[where,i] = apply(X[where,], 1, pois_deviance)
     }else{
       zero_proportion[, i] = mean(X[, ind] == 0)
@@ -1017,12 +1037,12 @@ diffexp_subfunction_gaus = function(count, features, group1, group2){
   if(length(group1) == 1){
     mean1 = mean(count1)
   }else{
-    mean1 = DelayedMatrixStats::rowMeans2(count1)
+    mean1 = chunkRowMean(count1)
   }
   if(length(group2) == 1){
     mean2 = mean(count2)
   }else{
-    mean2 = DelayedMatrixStats::rowMeans2(count2)
+    mean2 = chunkRowMean(count2)
   }
   rowdata = rowdata %>% dplyr::mutate(meandiff = mean1-mean2) %>%
     dplyr::mutate(sd = sqrt(mean1/length(group1)+
