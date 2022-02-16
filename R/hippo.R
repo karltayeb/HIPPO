@@ -16,9 +16,9 @@ chunkRowMean <- function(x, chunk_size=10000){
   chunkRowSum(x, chunk_size)/ncol(x)
 }
 
-chunkRowVar <- function(x, chunk_size=10000){
-  mu <- chunkRowMean(x, chunk_size)
-  mu2 <- chunkRowMean(x^2, chunk_size)
+RowVar <- function(x, chunk_size=10000){
+  mu <- Matrix::rowMeans(x, chunk_size)
+  mu2 <- Matrix::rowMeans(x^2, chunk_size)
   adj <- ncol(x) / (ncol(x) - 1)
   var <- (mu2 - mu^2) * adj
   return(var)
@@ -138,9 +138,8 @@ clustering_kmeans = function(subX,
                              null_result,
                              sc3_n_cores){
 
-  message(paste0('clustering ', ncol(subX), ' cells'))
-  message('load selected features...')
-  subX = chunkRealize(subX[features$gene,])
+  message('\t\tload selected features...')
+  subX = subX[features$gene,]
   n = min(km_num_embeds - 1, nrow(features) - 1, ncol(subX) - 1)
 
   message(paste0('\t\tcomputing top ', n, ' singular vectors...'))
@@ -156,6 +155,7 @@ clustering_kmeans = function(subX,
   if (is.na(pcs[1])) {
     return(null_result)
   }
+  message(paste0('\t\tclustering ', ncol(subX), ' cells'))
   km = kmeans(pcs, 2, nstart = km_nstart, iter.max = km_iter.max)
   return(list(features = features,
               cluster = km$cluster,
@@ -300,7 +300,6 @@ hippo_one_level = function(subX,
                            sc3_n_cores = 1){
   message('\tpreprocessing...')
   subdf = preprocess_heterogeneous(subX)
-  message('\tselecting features...')
   features = hippo_select_features(subdf,
                                    feature_method,
                                    z_threshold,
@@ -461,13 +460,15 @@ hippo = function(sce,
 
 preprocess_heterogeneous = function(X, compute_deviance=FALSE) {
   message('\t\tcomputing gene level statistics')
-  
+  message('\t\t\tconstructing transpose')
+  tX <- t(X)
   message('\t\t\t gene mean')
-  gene_mean = chunkRowMean(X)
+  gene_mean = Matrix::colMeans(tX)
   message('\t\t\t gene variance')
-  gene_var = chunkRowVar(X)
+  gene_var = (Matrix::colMeans(tX^2) - gene_mean^2)
   message('\t\t\t zero proportion')
-  zero_prop = 1 - chunkRowMean(X != 0)
+  zero_prop = 1 - Matrix::colMeans(tX != 0)
+
   df = data.frame(gene = rownames(X),
                   gene_mean = gene_mean,
                   zero_proportion = zero_prop,
@@ -515,10 +516,10 @@ preprocess_homogeneous = function(sce, label) {
   for (i in seq(length(labelnames))) {
     ind = which(label == labelnames[i])
     if(length(ind) >= 2){
-      zero_proportion[, i] = chunkRowMean(X[, ind] == 0)
-      gene_mean[, i] = chunkRowMean(X[, ind])
+      zero_proportion[, i] = Matrix::rowMeans(X[, ind] == 0)
+      gene_mean[, i] = Matrix::rowMeans(X[, ind])
       where = gene_mean[, i] != 0
-      gene_var[where, i] = chunkRowVar(X[where, ind])
+      gene_var[where, i] = RowVar(X[where, ind])
       deviance[where,i] = apply(X[where,], 1, pois_deviance)
     }else{
       zero_proportion[, i] = mean(X[, ind] == 0)
@@ -1063,12 +1064,12 @@ diffexp_subfunction_gaus = function(count, features, group1, group2){
   if(length(group1) == 1){
     mean1 = mean(count1)
   }else{
-    mean1 = chunkRowMean(count1)
+    mean1 = Matrix::rowMeans(count1)
   }
   if(length(group2) == 1){
     mean2 = mean(count2)
   }else{
-    mean2 = chunkRowMean(count2)
+    mean2 = Matrix::rowMeans(count2)
   }
   rowdata = rowdata %>% dplyr::mutate(meandiff = mean1-mean2) %>%
     dplyr::mutate(sd = sqrt(mean1/length(group1)+
