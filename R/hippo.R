@@ -384,6 +384,7 @@ hippo = function(sce,
   oldk = 1; k = 1
   features = list()
   round = 1
+  message('Running HIPPO clustering...')
   while (k < K) {
     if (verbose) {message(paste0("Round = ", round, "..", "K = ", k,".."))}
     round = round + 1
