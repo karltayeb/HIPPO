@@ -138,19 +138,18 @@ clustering_kmeans = function(subX,
 
   message('load selected features...')
   subX = chunkRealize(subX[features$gene,])
-  message('\t\tunscaled PCA...')
-  unscaledpc = suppressWarnings(irlba::prcomp_irlba(t(log1p(subX)),
-                                                    n = min(km_num_embeds - 1,
-                                                            nrow(features) - 1,
-                                                            ncol(subX) - 1),
-                                                    scale. = FALSE, center = FALSE)$x)
-  message('\t\tscaled PCA')
-  pcs = tryCatch(expr = {
-    irlba::irlba(log1p(subX),
-                 min(km_num_embeds - 1,
-                     nrow(features) -1,
-                     ncol(subX) - 1))$v
-  }, error = function(e) NA, warning = function(w) NA)
+  n = min(km_num_embeds - 1, nrow(features) - 1, ncol(subX) - 1)
+
+  message(paste0('\t\tcomputing top ', n, 'singular vectors...'))
+  # replaced 2 decompositions with one...
+  # only difference is "unscaled pca" is done on log(x + 1) instead of log(x + .1)
+  # original implimentation does not call "scale" or "center" args.. and
+  # equates left singular vectors $v with pcs...
+  # preserves sparsity-- maybe can actually do scaling/centering via irlba args
+  subXsvd = irlba::irlba(log1p(subX), n)
+  pcs = subXsvd$v
+  unscaledpc = sweep(subXsvd$v, 2, subXsvd$d, FUN='*')
+
   if (is.na(pcs[1])) {
     return(null_result)
   }
@@ -459,10 +458,17 @@ hippo = function(sce,
 
 preprocess_heterogeneous = function(X, compute_deviance=FALSE) {
   message('\t\tcomputing gene level statistics')
+  
+  message('\t\t\t gene mean')
+  gene_mean = chunkRowMean(X)
+  message('\t\t\t gene var')
+  gene_var = chunkRowVar(X)
+  message('\t\t\t zero proportion')
+  zero_prop = 1 - chunkRowMean(X != 0)
   df = data.frame(gene = rownames(X),
-                  gene_mean = chunkRowMean(X),
-                  zero_proportion = 1-chunkRowSum(X > 0)/ncol(X),
-                  gene_var = chunkRowVar(X))
+                  gene_mean = gene_mean,
+                  zero_proportion = zero_prop,
+                  gene_var = gene_var)
   where = which(df$gene_mean == 0)
   df$gene_var[where] = NA
   if (compute_deviance){
