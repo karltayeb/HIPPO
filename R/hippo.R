@@ -13,12 +13,14 @@ chunkRowSum <- function(x, chunk_size=10000){
 }
 
 chunkRowMean <- function(x, chunk_size=10000){
-  chunkRowSum(x, chunk_size)/dim(x)[2]
+  chunkRowSum(x, chunk_size)/ncol(x)
 }
 
 chunkRowVar <- function(x, chunk_size=10000){
   mu <- chunkRowMean(x, chunk_size)
-  var <- chunkRowSum((x-mu^2)^2)/(ncol(x) - 1)
+  mu2 <- chunkRowMean(x^2, chunk_size)
+  adj <- ncol(x) / (ncol(x) - 1)
+  var <- (mu2 - mu^2) * adj
   return(var)
 }
 
