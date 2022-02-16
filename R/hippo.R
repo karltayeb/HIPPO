@@ -138,11 +138,12 @@ clustering_kmeans = function(subX,
                              null_result,
                              sc3_n_cores){
 
+  message(paste0('clustering ', ncol(subX), ' cells'))
   message('load selected features...')
   subX = chunkRealize(subX[features$gene,])
   n = min(km_num_embeds - 1, nrow(features) - 1, ncol(subX) - 1)
 
-  message(paste0('\t\tcomputing top ', n, 'singular vectors...'))
+  message(paste0('\t\tcomputing top ', n, ' singular vectors...'))
   # replaced 2 decompositions with one...
   # only difference is "unscaled pca" is done on log(x + 1) instead of log(x + .1)
   # original implimentation does not call "scale" or "center" args.. and
