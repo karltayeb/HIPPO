@@ -89,15 +89,17 @@ hippo_select_features = function(subdf,
                                  z_threshold,
                                  deviance_threshold,
                                  max_features){
-
+  require(dplyr)
   if (feature_method == "zero_inflation"){  
-    idx <- sort(tail(sort(subdf$zvalue, index.return=TRUE)$ix, max_features))
-    idx2 <- which(subdf$zvalue > z_threshold)
+    features <- subdf %>%
+        mutate(index = row_number()) %>%
+        filter(zvalue > z_threshold) %>%
+        arrange(desc(zvalue)) %>%
+        mutate(select_feature = row_number() <= max_features) %>%
+        arrange(index)
     message(paste0(
-        '\t', length(idx2), ' features with threshold > ', z_threshold,
+        '\t', nrow(features), ' features with threshold > ', z_threshold,
         '... selecting top ', max_features)) 
-    idx <- intersect(idx, idx2) 
-    features = subdf[idx, ]
   }else if(feature_method=="deviance"){
     idx <- sort(tail(sort(subdf$deviance, index.return=TRUE)$ix, max_features))
     idx2 <- which(subdf$deviance > deviance_threshold)
@@ -298,13 +300,15 @@ hippo_one_level = function(subX,
                            km_nstart = 50,
                            km_iter.max = 50,
                            sc3_n_cores = 1){
-  message('\tpreprocessing...')
+  message('\tpreprocessing (', dim(subX)[1], ' genes, ', dim(subX)[2], ' cells) ...')
   subdf = preprocess_heterogeneous(subX)
   features = hippo_select_features(subdf,
                                    feature_method,
                                    z_threshold,
                                    deviance_threshold,
                                    max_features)
+  # subset to genes that passed thresholding
+  subsubX <- subX[features$select_feature,]
   subX = subX[features$gene, ]
   nullfeatures = data.frame(matrix(ncol = 11, nrow = 0))
   colnames(nullfeatures) = c("gene", "gene_mean", "zero_proportion",
