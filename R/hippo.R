@@ -463,7 +463,7 @@ preprocess_heterogeneous = function(X, compute_deviance=FALSE) {
   
   message('\t\t\t gene mean')
   gene_mean = chunkRowMean(X)
-  message('\t\t\t gene var')
+  message('\t\t\t gene variance')
   gene_var = chunkRowVar(X)
   message('\t\t\t zero proportion')
   zero_prop = 1 - chunkRowMean(X != 0)
