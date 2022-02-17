@@ -301,6 +301,7 @@ hippo_one_level = function(subX,
                            km_iter.max = 50,
                            sc3_n_cores = 1){
   message('\tpreprocessing (', dim(subX)[1], ' genes, ', dim(subX)[2], ' cells) ...')
+
   subdf = preprocess_heterogeneous(subX)
   features = hippo_select_features(subdf,
                                    feature_method,
