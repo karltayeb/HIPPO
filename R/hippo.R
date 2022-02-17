@@ -392,7 +392,7 @@ hippo = function(sce,
   round = 1
   message('Running HIPPO clustering...')
   while (k < K) {
-    if (verbose) {message(paste0("Round = ", round, "..", "K = ", k,".."))}
+    if (verbose) {message(paste0("Round = ", round, "..", "K = ", k,".. (splitting cluster ", oldk, ")"))}
     round = round + 1
     thisk = hippo_one_level(subX,
                             feature_method = feature_method,
@@ -436,16 +436,22 @@ hippo = function(sce,
         }
       }
       # print(withinss)
+      # record features for this round
+      thisk$features$Round = round
+      features[[round-1]] = thisk$features
 
-      ## update oldk
+      ## update oldk (next cluster to split)
       oldk = which.max(withinss[seq(k)])
 
       ## set up next round of clustering
-      subXind = which(labelmatrix[, round] == oldk)
-      subX = X[thisk$features$gene, subXind]
+      # get features from the last time this cluster was split
+      n_occurences <- apply(labelmatrix[,1:round], 2, function(x){sum(oldk == x)})
+      delta <- head(n_occurences, -1) - tail(n_occurences, -1)
+      last_round <- tail(which(delta!=0),1)
 
-      thisk$features$Round = round
-      features[[round-1]] = thisk$features
+      # subset to the features used to split that round
+      subXind = which(labelmatrix[, round] == oldk)
+      subX = X[features[[last_round]]$gene, subXind]
     }
   }
   nonnaind = which(colSums(is.na(labelmatrix)) == 0)
