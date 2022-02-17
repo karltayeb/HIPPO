@@ -296,6 +296,7 @@ hippo_one_level = function(subX,
                            z_threshold,
                            deviance_threshold,
                            max_features=1000,
+                           min_cluster_size=10,
                            km_num_embeds = 10,
                            km_nstart = 50,
                            km_iter.max = 50,
@@ -317,7 +318,7 @@ hippo_one_level = function(subX,
                              "minus_logp","zvalue","Round")
   null_result = list(features = nullfeatures,
                      pcs = NA, km = NA, unscaled_pcs = NA, subdf = NA)
-  if (nrow(features) < 10) {
+  if (nrow(features) < min_cluster_size) {
     return(null_result)
   }else {
     message('\tclustering...')
@@ -370,6 +371,7 @@ hippo = function(sce,
                  deviance_threshold = 50,
                  max_features = 1000,
                  outlier_proportion = 0.001,
+                 min_cluster_size=10,
                  km_num_embeds = 10,
                  km_nstart = 10,
                  km_iter.max = 50,
@@ -401,6 +403,7 @@ hippo = function(sce,
                             z_threshold = z_threshold,
                             deviance_threshold = deviance_threshold,
                             max_features = max_features,
+                            min_cluster_size = min_cluster_size,
                             km_num_embeds = km_num_embeds,
                             km_nstart = km_nstart,
                             km_iter.max = km_iter.max,
@@ -415,7 +418,7 @@ hippo = function(sce,
                           terminate the procedure")}
       withinss[oldk] <- 0 # don't visit this again
       round <- round - 1
-    }else if(min(table(thisk$cluster)) < 10){
+    }else if(min(table(thisk$cluster)) < min_cluster_size){
       if(verbose){message("cluster size too small; terminate the procedure")}
       withinss[oldk] <- 0  # don't visit again
       round <- round - 1
