@@ -1,6 +1,29 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
+#  Karl's HIPPO fork
+
+I wanted to run HIPPO on a large data set.
+
+## What's new here
+- **Added some new parameters for user** add `max_features` and `min_cluster_size` as arguments to give more control to users on these parameters that affect run time
+- **Heirarchecal (rather than sequential) feature subsetting**
+	- In the current implementation of HIPPO, $X$ gets subsetted to the features selected in the previous round. The sequence of clustering steps get performed on a nested sequence of features. This doesn't make sense to me... a few clustering steps may be used to dig into one cell populations, and I don't want to restrict my features to those relevant to those small cell populations when I go up the tree and try to split an earlier cluster.
+	- I changed the behavior of HIPPO to restrict to the significant features at the level the cluster was last split. This way, as you go down any particular lineage, the features used to split each child are a subset of the features used to split the parent, but it does not enforce the descendants of siblings to select on the same features.
+- **Sparse log plus 1** calling $log(X + 1)$ is slow because you coerce the sparse matrix into a dense one. Performing SVD on the dense matrix is also more expensive. updated code to do this step efficiently.
+- **Only perform one SVD**. 
+	- **NOTE:  Best I can tell, the current release of HIPPO is not centering/scaling for clustering**. The "PCs" that get clustered are just the right singular vectors output from the `irlba::irlba`, which is run without the `ceter` or `scale.` arguments.  This is all well for me though, because I can now get the "unscaled" and "scaled" PCs with only one partial SVD. 
+	- The current implementation calls "unscaledpc" the PCs of $log(X + 0.1)$ and the "scaled PCs" the right singular vectors of $\log(X+1)$. I just compute (partial SVD) of $\log(X+1) = UDV^T$ and call "unscaled PCs" $VD$, and the "scaled pcs" $V$. Ignoring the difference in pseudocount, this is identical to what is currently being done. It is MUCH faster. We also avoid an expensive and unecessary transpose operation on a `dgCMatrix` (it needs to build a new index, reorganize non-zero entries)
+- **Dont Stop Early** HIPPO terminates as soon as it finds one cluster that fails the split criterea (proportion of significant features AND minimum # of cells in new cluster). This can leave many other clusters untouched. Instead, if we hit an unsplittable cluster, move to the next best candidate to split. This way the program keeps trying to split clusters until all clusters are "atomic" or maximum number of clusters $K$ is reached. The user can make decisions late about how far down the tree they'd like to go.
+
+## Other comments
+
+In the interest of time I skip computing the dispersion statistics. Could probably make this more efficient too
+
+In order to get HIPPO to skip clusters that already attempted splitting but hit termination criteria I set `withinss[oldk] <- 0` , if this gets recorded anywhere in the final output (and if not I think it should) it will be misleading
+
+There are some functions like `chunkRowSum(...)` that are not being used, I was messing around with operating on representations of on-disk data e.g `DelayedArray` but abandoned that.
+
 # HIPPO
 
 Single cell UMI analysis tool that focuses on zero-inflation to detect
