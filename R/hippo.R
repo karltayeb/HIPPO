@@ -73,7 +73,8 @@ compute_test_statistic = function(df) {
     dplyr::mutate(se = sqrt(.data$expected_pi*(1-.data$expected_pi))) %>%
     dplyr::mutate(expected_pi = pmax(1e-10, expected_pi)) %>%
     dplyr::mutate(se = se / sqrt(.data$samplesize)) %>%
-    dplyr::mutate(propdiff = .data$zero_proportion - .data$expected_pi) %>%
+    dplyr::mutate(propdiff = .data$zero_propor
+                  tion - .data$expected_pi) %>%
     dplyr::mutate(zvalue = .data$propdiff/.data$se) %>%
     dplyr::mutate(pvalue = pnorm(.data$zero_proportion,
                                  .data$expected_pi,
@@ -392,8 +393,10 @@ hippo = function(sce,
   round = 1
   message('Running HIPPO clustering...')
   while (k < K) {
+    print(withinss)
     if (verbose) {message(paste0("Round = ", round, "..", "K = ", k,".. (splitting cluster ", oldk, ")"))}
     round = round + 1
+    labelmatrix[, round] = labelmatrix[, round-1]
     thisk = hippo_one_level(subX,
                             feature_method = feature_method,
                             clustering_method = clustering_method,
@@ -404,18 +407,22 @@ hippo = function(sce,
                             km_nstart = km_nstart,
                             km_iter.max = km_iter.max,
                             sc3_n_cores = sc3_n_cores)
+    
+    allk = sort(unique(labelmatrix[,round]))
+    origclusternum = labelmatrix[subXind, round-1][1]
+    newk = c(origclusternum, allk[! allk %in% labelmatrix[,round-1]])
+    k = max(allk)
     if (nrow(thisk$features) < param$outlier_number){
       if(verbose){message("not enough important features left;
                           terminate the procedure")}
-      labelmatrix = labelmatrix[,seq(round-1)]
-      break
+      withinss[oldk] <- 0 # don't visit this again
+      round <- round - 1
     }else if(min(table(thisk$cluster)) < 10){
       if(verbose){message("cluster size too small; terminate the procedure")}
-      labelmatrix = labelmatrix[,seq(round-1)]
-      break
+      withinss[oldk] <- 0  # don't visit again
+      round <- round - 1
     }else{
       newc = thisk$cluster
-      labelmatrix[, round] = labelmatrix[, round-1]
       origclusternum = labelmatrix[subXind, round-1][1]
       origind = which(newc == 1)
       updateind = which(newc != 1)
@@ -435,11 +442,10 @@ hippo = function(sce,
           withinss[kk] = sum(apply(thisk$unscaled_pcs[secondind,],1,var))
         }
       }
-      # print(withinss)
       # record features for this round
       thisk$features$Round = round
-      features[[round-1]] = thisk$features
-
+      features[[round-1]] = thisk$features}
+    if(sum(withinss != 0) != 0){
       ## update oldk (next cluster to split)
       oldk = which.max(withinss[seq(k)])
 
@@ -452,6 +458,9 @@ hippo = function(sce,
       # subset to the features used to split that round
       subXind = which(labelmatrix[, round] == oldk)
       subX = X[features[[last_round]]$gene, subXind]
+    } else{
+        if(verbose){message("no more active clusters")}
+        break
     }
   }
   nonnaind = which(colSums(is.na(labelmatrix)) == 0)
@@ -471,13 +480,9 @@ hippo = function(sce,
 
 preprocess_heterogeneous = function(X, compute_deviance=FALSE) {
   message('\t\tcomputing gene level statistics')
-  message('\t\t\tconstructing transpose')
   tX <- t(X)
-  message('\t\t\t gene mean')
   gene_mean = Matrix::colMeans(tX)
-  message('\t\t\t gene variance')
   gene_var = (Matrix::colMeans(tX^2) - gene_mean^2)
-  message('\t\t\t zero proportion')
   zero_prop = 1 - Matrix::colMeans(tX != 0)
 
   df = data.frame(gene = rownames(X),
