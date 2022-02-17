@@ -392,7 +392,6 @@ hippo = function(sce,
   round = 1
   message('Running HIPPO clustering...')
   while (k < K) {
-    print(withinss)
     if (verbose) {message(paste0("Round = ", round, "..", "K = ", k,".. (splitting cluster ", oldk, ")"))}
     round = round + 1
     labelmatrix[, round] = labelmatrix[, round-1]
